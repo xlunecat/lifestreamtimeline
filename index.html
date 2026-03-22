@@ -2119,7 +2119,7 @@
     sorted.forEach(e => { const {year}=parseDate(e.date); if(!groups[year])groups[year]=[]; groups[year].push(e); });
 
     let html = '';
-    const yearList = Object.keys(groups).sort((a,b)=>Number(a)-Number(b));
+    const yearList = Object.keys(groups).sort((a,b)=>Number(b)-Number(a));
     yearList.forEach(year => {
       const vis = hasRendered ? ' visible' : ' entering';
       html += `<div class="year-group" id="year-${year}"><div class="year-label${vis}"><span>${formatEraYear(Number(year))}</span></div>`;
@@ -2165,6 +2165,12 @@
 
     container.innerHTML = html;
     hasRendered = true;
+
+    // Restore open entries
+    Object.keys(openEntries).forEach(id => {
+      const el = container.querySelector(`.entry[data-id="${id}"]`);
+      if (el) el.classList.add('open');
+    });
 
     // Build year navigation
     renderYearNav(yearList);
@@ -2254,7 +2260,15 @@
   }
 
   function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-  function toggleEntry(id) { document.querySelector(`.entry[data-id="${id}"]`)?.classList.toggle('open'); }
+
+  let openEntries = {}; // { entryId: true }
+  function toggleEntry(id) {
+    const el = document.querySelector(`.entry[data-id="${id}"]`);
+    if (!el) return;
+    el.classList.toggle('open');
+    if (el.classList.contains('open')) { openEntries[id] = true; }
+    else { delete openEntries[id]; }
+  }
 
   // ==================== AUTH ====================
   const adminsRef = db.ref('admins');
@@ -3181,9 +3195,12 @@
       }
     });
     if (Object.keys(tags).length) {
-      charTagsRef.child(currentUser.uid).child(taggingEventId).set(tags);
+      charTagsRef.child(currentUser.uid).child(taggingEventId).set(tags)
+        .then(() => console.log('Char tags saved:', tags))
+        .catch(e => console.error('Char tags save failed:', e));
     } else {
-      charTagsRef.child(currentUser.uid).child(taggingEventId).remove();
+      charTagsRef.child(currentUser.uid).child(taggingEventId).remove()
+        .catch(e => console.error('Char tags remove failed:', e));
     }
     closeModal('tagCharsModal');
   }
