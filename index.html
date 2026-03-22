@@ -1506,8 +1506,8 @@
   function rebuildFriendEntries() {
     friendEntries = [];
     Object.keys(myFriends).forEach(uid => {
+      if (myFriends[uid].hidden) return; // toggled off
       if (myFriends[uid].entries) {
-        // Filter out secret entries — friends can't see those
         friendEntries = friendEntries.concat(
           myFriends[uid].entries.filter(e => !e.secret)
         );
@@ -2451,6 +2451,15 @@
     rerender();
   }
 
+  function toggleFriendVisibility(uid) {
+    if (!myFriends[uid]) return;
+    myFriends[uid].hidden = !myFriends[uid].hidden;
+    rebuildFriendEntries();
+    rebuildVisibleCharacters();
+    renderFriendList();
+    rerender();
+  }
+
   function renderFriendList() {
     const container = document.getElementById('friendList');
     const friends = Object.keys(myFriends);
@@ -2460,8 +2469,13 @@
     }
     let html = '';
     friends.forEach(uid => {
+      const f = myFriends[uid];
+      const isOn = !f.hidden;
       html += `<div class="friend-row">
-        <span class="friend-name">${escHtml(myFriends[uid].name)}</span>
+        <button class="spy-toggle${isOn ? ' active' : ''}" onclick="toggleFriendVisibility('${uid}')" style="flex-shrink:0;width:32px;height:18px;border-radius:9px;background:${isOn ? 'rgba(57,255,133,0.3)' : 'var(--plate-light)'};border:none;cursor:pointer;position:relative;transition:background 0.3s;">
+          <span style="position:absolute;top:2px;${isOn ? 'left:16px' : 'left:2px'};width:14px;height:14px;border-radius:50%;background:${isOn ? 'var(--mako-green)' : 'var(--text-dim)'};transition:all 0.3s;display:block;"></span>
+        </button>
+        <span class="friend-name" style="${f.hidden ? 'opacity:0.4;' : ''}">${escHtml(f.name)}</span>
         <button class="friend-remove" onclick="removeFriend('${uid}')">✕</button>
       </div>`;
     });
@@ -2499,8 +2513,9 @@
         visibleCharacters = visibleCharacters.concat(spyingOnUsers[uid].characters);
       }
     });
-    // Add characters from friends
+    // Add characters from friends (skip hidden)
     Object.keys(myFriends).forEach(uid => {
+      if (myFriends[uid].hidden) return;
       if (myFriends[uid].characters) {
         visibleCharacters = visibleCharacters.concat(myFriends[uid].characters);
       }
