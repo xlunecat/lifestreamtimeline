@@ -1837,10 +1837,8 @@
     spyEntries = [];
     Object.keys(spyingOnUsers).forEach(uid => {
       if (spyingOnUsers[uid].entries) {
-        // Secret entries hidden even from admin spying
-        spyEntries = spyEntries.concat(
-          spyingOnUsers[uid].entries.filter(e => !e.secret)
-        );
+        // shared_events never contains secret entries — no filtering needed
+        spyEntries = spyEntries.concat(spyingOnUsers[uid].entries);
       }
     });
   }
@@ -1848,16 +1846,16 @@
   function toggleSpyUser(uid, name) {
     if (spyingOnUsers[uid]) {
       // Stop spying
-      personalRef.child(uid).off();
+      sharedRef.child(uid).off();
       delete spyingOnUsers[uid];
       rebuildSpyEntries();
       rebuildVisibleCharacters();
       renderAdminUserPanel();
       rerender();
     } else {
-      // Start spying
+      // Start spying — reads shared_events (respects secret/private)
       spyingOnUsers[uid] = { name, entries: [], characters: [] };
-      personalRef.child(uid).on('value', snap => {
+      sharedRef.child(uid).on('value', snap => {
         const data = snap.val();
         if (!data) { spyingOnUsers[uid].entries = []; }
         else {
@@ -1874,7 +1872,7 @@
   }
 
   function stopAllSpying() {
-    Object.keys(spyingOnUsers).forEach(uid => personalRef.child(uid).off());
+    Object.keys(spyingOnUsers).forEach(uid => sharedRef.child(uid).off());
     spyingOnUsers = {};
     spyEntries = [];
     renderAdminUserPanel();
@@ -1894,11 +1892,21 @@
 
   function savePersonalEntry(entry, uid) {
     const { id, _source, _ownerUid, ...data } = entry;
-    return personalRef.child(uid).child(id).set(data);
+    // Always save to personal_events (owner-only)
+    const personalPromise = personalRef.child(uid).child(id).set(data);
+    // If not secret, also save to shared_events (friends can read)
+    // If secret, remove from shared_events
+    if (data.secret) {
+      sharedRef.child(uid).child(id).remove();
+    } else {
+      sharedRef.child(uid).child(id).set(data);
+    }
+    return personalPromise;
   }
 
   function deleteEntryFromDb(id, source, ownerUid) {
     if (source === 'personal' && ownerUid) {
+      sharedRef.child(ownerUid).child(id).remove(); // clean up shared copy
       return personalRef.child(ownerUid).child(id).remove();
     }
     return entriesRef.child(id).remove();
@@ -2430,6 +2438,12 @@
             loadMyFriends(user.uid);
             loadMyGroups(user.uid);
             loadMyCharTags(user.uid);
+
+            // One-time migration: sync personal_events → shared_events
+            migrateSharedEvents(user.uid);
+            // One-time migration: populate group_members_index
+            migrateGroupMembersIndex(user.uid);
+
             updateAuthUI();
             rerender();
           });
@@ -2593,7 +2607,9 @@
   const groupEventsRef = db.ref('group_events');
   const groupMembersRef = db.ref('group_members');
   const currentDateRef = db.ref('current_rp_date');
-  const charTagsRef = db.ref('character_tags'); // user's personal character tags on events
+  const charTagsRef = db.ref('character_tags');
+  const sharedRef = db.ref('shared_events'); // non-secret personal events, readable by friends
+  const groupMembersIndexRef = db.ref('group_members_index'); // reverse index for group read rules
 
   let myGroups = {}; // { groupId: { name, code, events[], listener } }
   let groupEntries = []; // flattened
@@ -2741,6 +2757,8 @@
     groupsRef.child(gid).set({ name, code, creator: currentUser.uid, created: Date.now() });
     // Add self as member
     groupMembersRef.child(currentUser.uid).child(gid).set({ name, code, joined: Date.now() });
+    // Add to group members index (for read rules)
+    groupMembersIndexRef.child(gid).child(currentUser.uid).set(true);
     closeModal('createGroupModal');
   }
 
@@ -2769,6 +2787,8 @@
       const group = data[gid];
       // Join the group
       groupMembersRef.child(currentUser.uid).child(gid).set({ name: group.name, code: group.code, joined: Date.now() });
+      // Add to group members index (for read rules)
+      groupMembersIndexRef.child(gid).child(currentUser.uid).set(true);
       closeModal('joinGroupModal');
     });
   }
@@ -2779,6 +2799,8 @@
     groupEventsRef.child(gid).off();
     delete myGroups[gid];
     groupMembersRef.child(currentUser.uid).child(gid).remove();
+    // Remove from group members index
+    groupMembersIndexRef.child(gid).child(currentUser.uid).remove();
     rebuildGroupEntries();
     populateGroupSelect();
     rerender();
@@ -2837,7 +2859,7 @@
       // Detach old listeners
       Object.keys(oldFriends).forEach(fuid => {
         if (!data || !data[fuid]) {
-          if (oldFriends[fuid].listener) personalRef.child(fuid).off();
+          if (oldFriends[fuid].listener) sharedRef.child(fuid).off();
           delete myFriends[fuid];
         }
       });
@@ -2853,8 +2875,8 @@
       Object.keys(data).forEach(fuid => {
         if (!myFriends[fuid]) {
           myFriends[fuid] = { name: data[fuid].name || 'Unknown', entries: [], characters: [], listener: true, hidden: !!savedToggles[fuid] };
-          // Listen to their personal events
-          personalRef.child(fuid).on('value', fsnap => {
+          // Listen to their SHARED events (not personal — those are owner-only)
+          sharedRef.child(fuid).on('value', fsnap => {
             const fdata = fsnap.val();
             if (!myFriends[fuid]) return;
             myFriends[fuid].entries = fdata ? Object.keys(fdata).map(k => ({
@@ -2882,7 +2904,7 @@
 
   function unloadMyFriends() {
     Object.keys(myFriends).forEach(fuid => {
-      personalRef.child(fuid).off();
+      sharedRef.child(fuid).off();
     });
     myFriends = {};
     friendEntries = [];
@@ -3393,6 +3415,57 @@
       </div>`;
     });
     container.innerHTML = html;
+  }
+
+  // ==================== ONE-TIME MIGRATIONS ====================
+
+  function migrateSharedEvents(uid) {
+    // Check if migration already ran for this user
+    const migKey = 'lifestream_migrated_shared_' + uid;
+    if (localStorage.getItem(migKey)) return;
+
+    personalRef.child(uid).once('value').then(snap => {
+      const data = snap.val();
+      if (!data) { localStorage.setItem(migKey, '1'); return; }
+
+      const updates = {};
+      Object.keys(data).forEach(eventId => {
+        const entry = data[eventId];
+        // Only copy non-secret events to shared
+        if (!entry.secret) {
+          updates[eventId] = entry;
+        }
+      });
+
+      if (Object.keys(updates).length) {
+        sharedRef.child(uid).update(updates).then(() => {
+          console.log('Migration: synced ' + Object.keys(updates).length + ' events to shared_events');
+          localStorage.setItem(migKey, '1');
+        }).catch(e => console.error('Migration shared_events failed:', e));
+      } else {
+        localStorage.setItem(migKey, '1');
+      }
+    });
+  }
+
+  function migrateGroupMembersIndex(uid) {
+    // Check if migration already ran for this user
+    const migKey = 'lifestream_migrated_groups_' + uid;
+    if (localStorage.getItem(migKey)) return;
+
+    groupMembersRef.child(uid).once('value').then(snap => {
+      const data = snap.val();
+      if (!data) { localStorage.setItem(migKey, '1'); return; }
+
+      const promises = Object.keys(data).map(gid => {
+        return groupMembersIndexRef.child(gid).child(uid).set(true);
+      });
+
+      Promise.all(promises).then(() => {
+        console.log('Migration: indexed ' + Object.keys(data).length + ' groups');
+        localStorage.setItem(migKey, '1');
+      }).catch(e => console.error('Migration group_members_index failed:', e));
+    });
   }
 
   // ==================== CURRENT RP DATE ====================
