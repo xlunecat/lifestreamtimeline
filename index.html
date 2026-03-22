@@ -275,7 +275,7 @@
     z-index: 10;
     max-width: 820px;
     margin: 0 auto;
-    padding: 30px 20px 100px;
+    padding: 30px 20px 60vh;
     height: calc(100vh - 130px); /* header + filter bar */
     overflow-y: auto;
     overflow-x: hidden;
@@ -1545,12 +1545,12 @@
       <select id="entryTag">
         <option value="">None</option>
         <option value="battle">Battle</option>
-        <option value="political">Political</option>
-        <option value="personal">Personal</option>
-        <option value="lore">Lore</option>
-        <option value="mission">Mission</option>
         <option value="birthday">Birthday</option>
         <option value="canon">Canon</option>
+        <option value="lore">Lore</option>
+        <option value="mission">Mission</option>
+        <option value="personal">Personal</option>
+        <option value="political">Political</option>
       </select>
       <label>Details</label>
       <textarea id="entryDetails" placeholder="Describe the event..."></textarea>
@@ -1821,12 +1821,12 @@
   // ==================== TAG FILTER ====================
   const ALL_TAGS = [
     { value: 'battle', label: 'BATTLE', bg: 'rgba(255,64,96,0.12)', color: '#ff6080', border: 'rgba(255,64,96,0.25)' },
-    { value: 'political', label: 'POLITICAL', bg: 'rgba(240,200,80,0.12)', color: '#f0c850', border: 'rgba(240,200,80,0.25)' },
-    { value: 'personal', label: 'PERSONAL', bg: 'rgba(100,160,255,0.12)', color: '#80b0ff', border: 'rgba(100,160,255,0.25)' },
-    { value: 'lore', label: 'LORE', bg: 'rgba(180,120,255,0.12)', color: '#c090ff', border: 'rgba(180,120,255,0.25)' },
-    { value: 'mission', label: 'MISSION', bg: 'rgba(57,255,133,0.12)', color: '#39ff85', border: 'rgba(57,255,133,0.25)' },
     { value: 'birthday', label: 'BIRTHDAY', bg: 'rgba(255,150,200,0.12)', color: '#ff96c8', border: 'rgba(255,150,200,0.25)' },
     { value: 'canon', label: 'CANON', bg: 'rgba(200,220,255,0.12)', color: '#b0c8ff', border: 'rgba(200,220,255,0.25)' },
+    { value: 'lore', label: 'LORE', bg: 'rgba(180,120,255,0.12)', color: '#c090ff', border: 'rgba(180,120,255,0.25)' },
+    { value: 'mission', label: 'MISSION', bg: 'rgba(57,255,133,0.12)', color: '#39ff85', border: 'rgba(57,255,133,0.25)' },
+    { value: 'personal', label: 'PERSONAL', bg: 'rgba(100,160,255,0.12)', color: '#80b0ff', border: 'rgba(100,160,255,0.25)' },
+    { value: 'political', label: 'POLITICAL', bg: 'rgba(240,200,80,0.12)', color: '#f0c850', border: 'rgba(240,200,80,0.25)' },
   ];
 
   function renderTagFilters() {
