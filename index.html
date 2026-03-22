@@ -1230,7 +1230,7 @@
     <div class="modal" style="max-width:400px;">
       <h2 id="charModalTitle">ADD CHARACTER</h2>
       <label>Character Name</label>
-      <input type="text" id="charNameInput" placeholder="e.g. Gabriel Lycanthyr" maxlength="60">
+      <input type="text" id="charNameInput" placeholder="e.g. Lune au Clair, Cloud Strife" maxlength="60">
       <label>Birthday</label>
       <div style="display:flex;gap:8px;margin-bottom:14px;">
         <select id="charBdayMonth" style="flex:1;margin-bottom:0;">
@@ -1273,7 +1273,7 @@
       <h2>CREATE GROUP</h2>
       <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:16px;line-height:1.6;">Create a group for shared timeline events. Share the group code with members.</p>
       <label for="groupNameInput">Group Name</label>
-      <input type="text" id="groupNameInput" placeholder="e.g. The Throuple, Unit 13..." maxlength="40" onkeydown="if(event.key==='Enter')submitCreateGroup()">
+      <input type="text" id="groupNameInput" placeholder="e.g. AVALANCHE, The Turks..." maxlength="40" onkeydown="if(event.key==='Enter')submitCreateGroup()">
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal('createGroupModal')">Cancel</button>
         <button class="btn-confirm" onclick="submitCreateGroup()">Create</button>
@@ -1345,7 +1345,7 @@
       <label>Details</label>
       <textarea id="entryDetails" placeholder="Describe the event..."></textarea>
       <label>Characters Involved (optional)</label>
-      <input type="text" id="entryCharacters" placeholder="e.g. Lune, Gabriel, Miyuki">
+      <input type="text" id="entryCharacters" placeholder="e.g. Lune, Cloud, Tifa">
       <div id="privateCheckboxRow" style="display:flex;align-items:center;gap:10px;margin:10px 0 6px;">
         <input type="checkbox" id="entryPrivate" style="width:auto;margin:0;accent-color:var(--mako-green);">
         <label for="entryPrivate" style="margin:0;cursor:pointer;color:var(--text-mid);font-size:0.8rem;">CLASSIFIED — Only visible to admins</label>
