@@ -2199,10 +2199,19 @@
   function rebuildGroupEntries() {
     groupEntries = [];
     Object.keys(myGroups).forEach(gid => {
+      if (myGroups[gid].hidden) return;
       if (myGroups[gid].events) {
         groupEntries = groupEntries.concat(myGroups[gid].events);
       }
     });
+  }
+
+  function toggleGroupVisibility(gid) {
+    if (!myGroups[gid]) return;
+    myGroups[gid].hidden = !myGroups[gid].hidden;
+    rebuildGroupEntries();
+    renderGroupList();
+    rerender();
   }
 
   function renderGroupList() {
@@ -2215,7 +2224,11 @@
     let html = '';
     groups.forEach(gid => {
       const g = myGroups[gid];
-      html += `<div class="char-card" style="border-color:rgba(255,180,50,0.2);">
+      const isOn = !g.hidden;
+      html += `<div class="char-card" style="border-color:rgba(255,180,50,0.2);${g.hidden ? 'opacity:0.4;' : ''}">
+        <button onclick="toggleGroupVisibility('${gid}')" style="flex-shrink:0;width:32px;height:18px;border-radius:9px;background:${isOn ? 'rgba(255,180,50,0.3)' : 'var(--plate-light)'};border:none;cursor:pointer;position:relative;transition:background 0.3s;">
+          <span style="position:absolute;top:2px;${isOn ? 'left:16px' : 'left:2px'};width:14px;height:14px;border-radius:50%;background:${isOn ? '#f0b832' : 'var(--text-dim)'};transition:all 0.3s;display:block;"></span>
+        </button>
         <div class="char-info">
           <div class="char-name" style="color:#f0b832;">${escHtml(g.name)}</div>
           <div class="char-bday" style="user-select:all;">${g.code || gid}</div>
