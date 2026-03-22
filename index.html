@@ -2034,7 +2034,8 @@
         const isGroup = entry._source === 'group';
         const personalClass = isPersonal ? ' personal-entry' : '';
         const secretClass = entry.secret ? ' secret-entry' : '';
-        const canEdit = isAdmin || (isPersonal && currentUser && entry._ownerUid === currentUser.uid) || isGroup;
+        const isMyEntry = currentUser && entry._ownerUid === currentUser.uid;
+        const canEdit = (src === 'public' && isAdmin) || (isPersonal && isMyEntry) || (isGroup);
         const src = entry._source || 'public';
         const ownerUid = entry._ownerUid || '';
         const groupId = entry._groupId || '';
