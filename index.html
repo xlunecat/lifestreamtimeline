@@ -1513,6 +1513,10 @@
         <input type="text" id="charBdayDay" placeholder="Day" style="flex:0.5;margin-bottom:0;" maxlength="2">
         <input type="text" id="charBdayYear" placeholder="Year" style="flex:0.7;margin-bottom:0;" maxlength="4">
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <input type="checkbox" id="charPrivateAge" style="width:auto;margin:0;accent-color:#c090ff;">
+        <label for="charPrivateAge" style="margin:0;cursor:pointer;color:var(--text-dim);font-size:0.78rem;">Hide age from friends</label>
+      </div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal('charModal')">Cancel</button>
         <button class="btn-confirm" onclick="submitCharacter()">Save</button>
@@ -3000,18 +3004,22 @@
   }
 
   function rebuildVisibleCharacters() {
-    visibleCharacters = [...myCharacters];
-    // Add characters from users we're spying on
+    visibleCharacters = [...myCharacters]; // always see your own
+    // Add characters from users we're spying on (respect privateAge)
     Object.keys(spyingOnUsers).forEach(uid => {
       if (spyingOnUsers[uid].characters) {
-        visibleCharacters = visibleCharacters.concat(spyingOnUsers[uid].characters);
+        visibleCharacters = visibleCharacters.concat(
+          spyingOnUsers[uid].characters.filter(c => !c.privateAge)
+        );
       }
     });
-    // Add characters from friends (skip hidden)
+    // Add characters from friends (skip hidden friends, skip privateAge chars)
     Object.keys(myFriends).forEach(uid => {
       if (myFriends[uid].hidden) return;
       if (myFriends[uid].characters) {
-        visibleCharacters = visibleCharacters.concat(myFriends[uid].characters);
+        visibleCharacters = visibleCharacters.concat(
+          myFriends[uid].characters.filter(c => !c.privateAge)
+        );
       }
     });
   }
@@ -3091,9 +3099,10 @@
     let html = '';
     myCharacters.forEach(c => {
       const bdayDisplay = c.birthday ? formatDate(c.birthday) + ', ' + formatEraYear(parseDate(c.birthday).year) : 'No birthday set';
+      const lockIcon = c.privateAge ? ' <span title="Age hidden from friends" style="opacity:0.5;font-size:0.7rem;">🔒</span>' : '';
       html += `<div class="char-card">
         <div class="char-info">
-          <div class="char-name">${escHtml(c.name)}</div>
+          <div class="char-name">${escHtml(c.name)}${lockIcon}</div>
           <div class="char-bday">${bdayDisplay}</div>
         </div>
         <div class="char-actions">
@@ -3112,6 +3121,7 @@
     document.getElementById('charBdayMonth').selectedIndex = 0;
     document.getElementById('charBdayDay').value = '';
     document.getElementById('charBdayYear').value = '';
+    document.getElementById('charPrivateAge').checked = false;
     openModal('charModal');
   }
 
@@ -3121,6 +3131,7 @@
     editingCharId = charId;
     document.getElementById('charModalTitle').textContent = 'EDIT CHARACTER';
     document.getElementById('charNameInput').value = c.name;
+    document.getElementById('charPrivateAge').checked = !!c.privateAge;
     if (c.birthday) {
       const { year, month, day } = parseDate(c.birthday);
       document.getElementById('charBdayMonth').value = String(month).padStart(2, '0');
@@ -3139,10 +3150,12 @@
     const month = document.getElementById('charBdayMonth').value;
     const day = document.getElementById('charBdayDay').value.padStart(2, '0');
     const year = document.getElementById('charBdayYear').value.padStart(4, '0');
+    const privateAge = document.getElementById('charPrivateAge').checked;
     if (!name || !currentUser) return;
     const id = editingCharId || generateId();
     const data = { id, name };
     if (month && day && year) data.birthday = `${year}-${month}-${day}`;
+    if (privateAge) data.privateAge = true;
     saveCharacter(data, currentUser.uid).then(() => closeModal('charModal'));
   }
 
