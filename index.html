@@ -1523,7 +1523,7 @@
   <div class="modal-overlay" id="entryModal">
     <div class="modal" style="max-width:460px;">
       <h2 id="entryModalTitle">ADD EVENT</h2>
-      <label>Date</label>
+      <label>Canon Date</label>
       <div style="display:flex;gap:8px;margin-bottom:14px;">
         <select id="entryMonth" style="flex:1;margin-bottom:0;">
           <option value="">Month</option>
@@ -1537,6 +1537,8 @@
         <input type="text" id="entryDay" placeholder="Day" style="flex:0.5;margin-bottom:0;" maxlength="2">
         <input type="text" id="entryYear" placeholder="Year" style="flex:0.7;margin-bottom:0;" maxlength="4">
       </div>
+      <label style="color:var(--text-dim);opacity:0.7;">RL Date <span style="font-size:0.6rem;opacity:0.6;">(optional — used for sorting when canon day is blank)</span></label>
+      <input type="date" id="entryRlDate" style="margin-bottom:14px;color-scheme:dark;">
       <label>Title</label>
       <input type="text" id="entryTitle" placeholder="Event title...">
       <label>Tag</label>
@@ -1957,11 +1959,21 @@
   function sortEntries(entries) {
     return [...entries].sort((a,b) => {
       const da=parseDate(a.date), db=parseDate(b.date);
+      // Primary: canon year
       if (da.year!==db.year) return da.year-db.year;
-      // Year-only entries (month=0) sort to end of year
-      const am = da.month || 13, ad = da.day || 32;
-      const bm = db.month || 13, bd = db.day || 32;
-      return am!==bm ? am-bm : ad-bd;
+      // Secondary: canon month (0 = no month, sorts last)
+      const am = da.month || 13, bm = db.month || 13;
+      if (am!==bm) return am-bm;
+      // Tertiary: canon day (0 = no day)
+      if (da.day && db.day) return da.day-db.day;
+      if (da.day && !db.day) return -1; // specific day before unspecified
+      if (!da.day && db.day) return 1;
+      // Both have no canon day — fall back to RL date
+      const arl = a.rlDate || '', brl = b.rlDate || '';
+      if (arl && brl) return arl.localeCompare(brl);
+      if (arl && !brl) return -1; // has RL date before no RL date
+      if (!arl && brl) return 1;
+      return 0;
     });
   }
 
@@ -2028,7 +2040,9 @@
         const groupId = entry._groupId || '';
         html += `<div class="entry${vis}${priv}${personalClass}${secretClass}" data-id="${entry.id}"><div class="entry-card">
           <div class="entry-header" onclick="toggleEntry('${entry.id}')">
-            <span class="entry-date${isYearOnly(entry.date)?' year-only':''}">${formatDate(entry.date)}</span>
+            <span class="entry-date${isYearOnly(entry.date)?' year-only':''}">
+              ${formatDate(entry.date)}${entry.rlDate ? `<br><span style="font-size:0.58rem;opacity:0.45;">${entry.rlDate}</span>` : ''}
+            </span>
             <span class="entry-title">${escHtml(entry.title)}</span>
             ${isGroup && entry._groupName ? `<span class="entry-tag tag-group">${escHtml(entry._groupName)}</span>` : ''}
             ${isPersonal && entry._ownerName && entry._ownerUid !== (currentUser?currentUser.uid:'') ? `<span class="entry-tag tag-personal-event">${escHtml(entry._ownerName)}</span>` : isPersonal ? '<span class="entry-tag tag-personal-event">MY EVENT</span>' : ''}
@@ -2348,6 +2362,7 @@
     document.getElementById('entryCharacters').value = entry.characters || '';
     document.getElementById('entryPrivate').checked = !!entry.private;
     document.getElementById('entrySecret').checked = !!entry.secret;
+    document.getElementById('entryRlDate').value = entry.rlDate || '';
     if (isEditingGroup && groupId) {
       document.getElementById('entryGroup').value = groupId;
     }
@@ -2359,6 +2374,7 @@
       .forEach(id => { const el=document.getElementById(id); el.tagName==='SELECT'?el.selectedIndex=0:el.value=''; });
     document.getElementById('entryPrivate').checked = false;
     document.getElementById('entrySecret').checked = false;
+    document.getElementById('entryRlDate').value = '';
   }
 
   function submitEntry() {
@@ -2371,12 +2387,14 @@
     const characters=document.getElementById('entryCharacters').value.trim();
     const isPrivate=document.getElementById('entryPrivate').checked;
     const isSecret=document.getElementById('entrySecret').checked;
+    const rlDate=document.getElementById('entryRlDate').value;
     const groupId=document.getElementById('entryGroup')?.value || '';
     if (!year||!title||!details) return;
     const m = month || '00';
     const d = day ? day.padStart(2,'0') : '00';
     const id = editingId || generateId();
     const entryData = { id, date:`${year}-${m}-${d}`, title, tag, details, characters };
+    if (rlDate) entryData.rlDate = rlDate;
     if (isPrivate && editingSource === 'public') entryData.private = true;
     if (isSecret && editingSource === 'personal') entryData.secret = true;
     if (groupId) entryData.groupId = groupId;
