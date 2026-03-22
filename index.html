@@ -507,7 +507,7 @@
     display: none;
     position: fixed;
     bottom: 30px;
-    right: 92px;
+    right: 30px;
     width: 52px;
     height: 52px;
     border-radius: 50%;
@@ -535,21 +535,23 @@
     position: fixed;
     bottom: 30px;
     left: 30px;
-    width: 42px;
-    height: 42px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background: var(--plate-mid);
     border: 2px solid var(--text-dim);
     color: var(--text-mid);
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     cursor: pointer;
     z-index: 100;
     transition: all 0.3s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
 
   .admin-panel-toggle:hover {
     border-color: var(--mako-green);
     color: var(--mako-green);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 12px rgba(57,255,133,0.15);
   }
 
   body.admin-mode .admin-panel-toggle { display: block; }
@@ -691,8 +693,8 @@
   .add-entry-btn {
     display: none;
     position: fixed;
-    bottom: 30px;
-    right: 30px;
+    bottom: 92px;
+    left: 30px;
     width: 52px;
     height: 52px;
     border-radius: 50%;
@@ -867,23 +869,25 @@
   .char-panel-toggle {
     display: none;
     position: fixed;
-    bottom: 82px;
+    bottom: 92px;
     right: 30px;
-    width: 42px;
-    height: 42px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background: var(--plate-mid);
     border: 2px solid rgba(180,120,255,0.4);
     color: #c090ff;
-    font-size: 1rem;
+    font-size: 1.2rem;
     cursor: pointer;
     z-index: 150;
     transition: all 0.3s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 16px rgba(180,120,255,0.1);
   }
 
   .char-panel-toggle:hover {
     border-color: #c090ff;
-    box-shadow: 0 0 12px rgba(180,120,255,0.2);
+    transform: scale(1.08);
+    box-shadow: 0 4px 32px rgba(0,0,0,0.5), 0 0 24px rgba(180,120,255,0.2);
   }
 
   body.user-mode .char-panel-toggle,
@@ -1968,6 +1972,9 @@
     // Restore scroll position so re-renders don't jump
     scrollContainer.scrollTop = scrollPos;
     initScrollObserver();
+
+    // Highlight current year immediately
+    requestAnimationFrame(() => updateYearNavHighlight());
   }
 
   // ==================== YEAR NAVIGATION ====================
@@ -1991,6 +1998,28 @@
   }
 
   // Highlight current year in nav with fisheye effect
+  function updateYearNavHighlight() {
+    const container = document.getElementById('timelineContainer');
+    const yearGroups = container.querySelectorAll('.year-group');
+    const navBtns = document.querySelectorAll('.year-nav-btn');
+    if (!yearGroups.length || !navBtns.length) return;
+
+    let activeIdx = 0;
+    const viewCenter = container.scrollTop + container.clientHeight * 0.4;
+    yearGroups.forEach((g, i) => {
+      if (g.offsetTop <= viewCenter) activeIdx = i;
+    });
+
+    const yearArr = Array.from(navBtns);
+    yearArr.forEach((btn, i) => {
+      btn.classList.remove('active-year', 'near-1', 'near-2');
+      const dist = Math.abs(i - activeIdx);
+      if (dist === 0) btn.classList.add('active-year');
+      else if (dist === 1) btn.classList.add('near-1');
+      else if (dist === 2) btn.classList.add('near-2');
+    });
+  }
+
   (function() {
     let scrollTick = false;
     document.getElementById('timelineContainer').addEventListener('scroll', () => {
@@ -1998,27 +2027,7 @@
       scrollTick = true;
       requestAnimationFrame(() => {
         scrollTick = false;
-        const container = document.getElementById('timelineContainer');
-        const yearGroups = container.querySelectorAll('.year-group');
-        const navBtns = document.querySelectorAll('.year-nav-btn');
-        if (!yearGroups.length || !navBtns.length) return;
-
-        // Find which year is centered in viewport
-        let activeIdx = 0;
-        const viewCenter = container.scrollTop + container.clientHeight * 0.4;
-        yearGroups.forEach((g, i) => {
-          if (g.offsetTop <= viewCenter) activeIdx = i;
-        });
-
-        // Apply fisheye classes based on distance from active
-        const yearArr = Array.from(navBtns);
-        yearArr.forEach((btn, i) => {
-          btn.classList.remove('active-year', 'near-1', 'near-2');
-          const dist = Math.abs(i - activeIdx);
-          if (dist === 0) btn.classList.add('active-year');
-          else if (dist === 1) btn.classList.add('near-1');
-          else if (dist === 2) btn.classList.add('near-2');
-        });
+        updateYearNavHighlight();
       });
     });
   })();
