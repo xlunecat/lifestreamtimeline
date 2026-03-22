@@ -2050,11 +2050,10 @@
             ${entry.secret ? '<span class="entry-tag tag-secret">SECRET</span>' : ''}
             ${entry.private ? '<span class="entry-tag tag-classified">CLASSIFIED</span>' : ''}
             ${tl?`<span class="entry-tag ${tc}">${tl}</span>`:''}
-            ${canEdit ? `<div class="entry-admin-controls" style="display:flex" onclick="event.stopPropagation()">`
-              : `<div class="entry-admin-controls" onclick="event.stopPropagation()">`}
+            ${canEdit ? `<div style="display:flex;gap:6px;margin-left:auto;" onclick="event.stopPropagation()">
               <button class="entry-admin-btn" onclick="openEditModal('${entry.id}','${src}','${groupId}')">edit</button>
               <button class="entry-admin-btn delete" onclick="openDeleteModal('${entry.id}','${src}','${ownerUid}','${groupId}')">del</button>
-            </div>
+            </div>` : ''}
             <span class="expand-arrow">&#9654;</span>
           </div>
           <div class="entry-body"><div class="entry-content">
