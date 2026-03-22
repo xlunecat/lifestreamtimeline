@@ -304,9 +304,15 @@
     position: relative;
     padding-left: 72px;
     margin-bottom: 6px;
+    opacity: 1;
+    transform: translateY(0) translateX(0);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  /* First-load animation — added by JS, removed after first render */
+  .entry.entering {
     opacity: 0;
     transform: translateY(20px) translateX(-10px);
-    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
   }
 
   .entry.visible { opacity: 1; transform: translateY(0) translateX(0); }
@@ -322,9 +328,14 @@
     padding-left: 72px;
     margin-bottom: 20px;
     padding-top: 28px;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  }
+
+  .year-label.entering {
     opacity: 0;
     transform: translateY(16px);
-    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
   }
 
   .year-label.visible { opacity: 1; transform: translateY(0); }
@@ -1764,7 +1775,7 @@
 
     let html = '';
     Object.keys(groups).sort((a,b)=>Number(a)-Number(b)).forEach(year => {
-      const vis = hasRendered ? ' visible' : '';
+      const vis = hasRendered ? ' visible' : ' entering';
       html += `<div class="year-group"><div class="year-label${vis}"><span>${formatEraYear(Number(year))}</span></div>`;
       groups[year].forEach(entry => {
         const tc = entry.tag?`tag-${entry.tag}`:'', tl = entry.tag?entry.tag.toUpperCase():'';
@@ -1819,12 +1830,16 @@
     const root = document.getElementById('timelineContainer');
     scrollObserver = new IntersectionObserver(observed => {
       observed.forEach(oe => {
-        if (oe.isIntersecting) { oe.target.classList.add('visible'); oe.target.classList.remove('faded'); }
-        else if (oe.boundingClientRect.top < root.getBoundingClientRect().top) {
-          oe.target.classList.add('faded'); oe.target.classList.remove('visible');
+        if (oe.isIntersecting) {
+          oe.target.classList.remove('entering', 'faded');
+          oe.target.classList.add('visible');
+        } else {
+          // Fade in both directions — top and bottom
+          oe.target.classList.add('faded');
+          oe.target.classList.remove('visible');
         }
       });
-    }, { root, rootMargin: '-40px 0px -40px 0px', threshold: 0.15 });
+    }, { root, rootMargin: '-60px 0px -60px 0px', threshold: 0.1 });
     els.forEach(el => scrollObserver.observe(el));
   }
 
