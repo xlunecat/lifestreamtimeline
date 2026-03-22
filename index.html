@@ -2452,6 +2452,7 @@
   }
 
   function loadMyGroups(uid) {
+    const savedToggles = loadGroupToggles();
     groupMembersRef.child(uid).on('value', snap => {
       const data = snap.val();
       // Detach old listeners
@@ -2470,7 +2471,7 @@
       }
       Object.keys(data).forEach(gid => {
         if (!myGroups[gid]) {
-          myGroups[gid] = { name: data[gid].name || 'Group', code: data[gid].code || '', events: [] };
+          myGroups[gid] = { name: data[gid].name || 'Group', code: data[gid].code || '', events: [], hidden: !!savedToggles[gid] };
           // Listen to group events
           groupEventsRef.child(gid).on('value', gsnap => {
             const gdata = gsnap.val();
@@ -2505,9 +2506,25 @@
     });
   }
 
+  function saveGroupToggles() {
+    const hidden = {};
+    Object.keys(myGroups).forEach(gid => {
+      if (myGroups[gid].hidden) hidden[gid] = true;
+    });
+    localStorage.setItem('lifestream_group_toggles', JSON.stringify(hidden));
+  }
+
+  function loadGroupToggles() {
+    try {
+      const data = localStorage.getItem('lifestream_group_toggles');
+      return data ? JSON.parse(data) : {};
+    } catch(e) { return {}; }
+  }
+
   function toggleGroupVisibility(gid) {
     if (!myGroups[gid]) return;
     myGroups[gid].hidden = !myGroups[gid].hidden;
+    saveGroupToggles();
     rebuildGroupEntries();
     renderGroupList();
     rerender();
