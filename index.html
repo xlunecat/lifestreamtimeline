@@ -334,7 +334,7 @@
 
   .entry {
     position: relative;
-    padding-left: 72px;
+    padding-left: 90px;
     margin-bottom: 6px;
     opacity: 1;
     transform: translateY(0) translateX(0);
@@ -783,7 +783,7 @@
     .timeline-bar { left: 18px; margin-left: 0; }
     .year-label { padding-left: 52px; }
     .year-label::before { left: 8px; width: 22px; height: 22px; }
-    .entry { padding-left: 52px; }
+    .entry { padding-left: 62px; }
     .entry::before { left: calc(18px - var(--node-size)/2 + var(--bar-width)/2); }
     .entry::after { left: calc(18px + var(--node-size)/2 + var(--bar-width)/2); width: 12px; }
     .entry-header { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
@@ -1656,7 +1656,7 @@
       <label>Details</label>
       <textarea id="entryDetails" placeholder="Describe the event..."></textarea>
       <div id="canonCharsRow">
-        <label>Canon Characters <span style="font-size:0.6rem;opacity:0.5;">(visible to everyone)</span></label>
+        <label id="canonCharsLabel">Characters Involved <span style="font-size:0.6rem;opacity:0.5;">(optional)</span></label>
         <input type="text" id="entryCharacters" placeholder="e.g. Cloud, Sephiroth, Tifa">
       </div>
       <div id="privateCheckboxRow" style="display:flex;align-items:center;gap:10px;margin:10px 0 6px;">
@@ -2458,6 +2458,7 @@
     document.getElementById('secretCheckboxRow').style.display = 'none';
     document.getElementById('groupSelectRow').style.display = 'none';
     document.getElementById('canonCharsRow').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('canonCharsLabel').innerHTML = 'Canon Characters <span style="font-size:0.6rem;opacity:0.5;">(visible to everyone)</span>';
     clearEntryForm();
     openModal('entryModal');
   }
@@ -2471,7 +2472,8 @@
     document.getElementById('secretCheckboxRow').style.display = 'flex';
     const hasGroups = Object.keys(myGroups).length > 0;
     document.getElementById('groupSelectRow').style.display = hasGroups ? 'block' : 'none';
-    document.getElementById('canonCharsRow').style.display = 'none';
+    document.getElementById('canonCharsRow').style.display = 'block';
+    document.getElementById('canonCharsLabel').innerHTML = 'Characters Involved <span style="font-size:0.6rem;opacity:0.5;">(optional)</span>';
     populateGroupSelect();
     clearEntryForm();
     openModal('entryModal');
@@ -2488,7 +2490,11 @@
     document.getElementById('privateCheckboxRow').style.display = (isAdmin && editingSource === 'public') ? 'flex' : 'none';
     document.getElementById('secretCheckboxRow').style.display = editingSource === 'personal' ? 'flex' : 'none';
     document.getElementById('groupSelectRow').style.display = 'none';
-    document.getElementById('canonCharsRow').style.display = (isAdmin && editingSource === 'public') ? 'block' : 'none';
+    const showChars = (isAdmin && editingSource === 'public') || editingSource === 'personal' || isEditingGroup;
+    document.getElementById('canonCharsRow').style.display = showChars ? 'block' : 'none';
+    document.getElementById('canonCharsLabel').innerHTML = editingSource === 'public'
+      ? 'Canon Characters <span style="font-size:0.6rem;opacity:0.5;">(visible to everyone)</span>'
+      : 'Characters Involved <span style="font-size:0.6rem;opacity:0.5;">(optional)</span>';
     const {year,month,day} = parseDate(entry.date);
     document.getElementById('entryMonth').value = month ? String(month).padStart(2,'0') : '';
     document.getElementById('entryDay').value = day ? String(day) : '';
