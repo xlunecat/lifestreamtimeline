@@ -2160,15 +2160,11 @@
   function toggleEntry(id) { document.querySelector(`.entry[data-id="${id}"]`)?.classList.toggle('open'); }
 
   // ==================== AUTH ====================
-  const ADMIN_EMAILS = [
-    'haleighkhart@gmail.com',
-    'gotmurf@gmail.com'
-  ];
-
+  const adminsRef = db.ref('admins');
   const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-  function isAdminEmail(email) {
-    return ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
+  function checkIsAdmin(uid) {
+    return adminsRef.child(uid).once('value').then(snap => !!snap.val());
   }
 
   // Show/hide UI for sign-in state
@@ -2280,20 +2276,23 @@
             setTimeout(() => openNameModal(), 500);
           }
 
-          if (isAdminEmail(user.email)) {
-            isAdmin = true;
-            isUser = true;
-            entriesRef.once('value').then(s => { if (!s.val()) entriesRef.set(SEED_DATA); });
-          } else {
-            isUser = true;
-          }
-          loadPersonalEntries(user.uid);
-          loadMyCharacters(user.uid);
-          loadMyFriendCode(user.uid);
-          loadMyFriends(user.uid);
-          loadMyGroups(user.uid);
-          updateAuthUI();
-          rerender();
+          // Check admin status from Firebase (not hardcoded)
+          return checkIsAdmin(user.uid).then(userIsAdmin => {
+            if (userIsAdmin) {
+              isAdmin = true;
+              isUser = true;
+              entriesRef.once('value').then(s => { if (!s.val()) entriesRef.set(SEED_DATA); });
+            } else {
+              isUser = true;
+            }
+            loadPersonalEntries(user.uid);
+            loadMyCharacters(user.uid);
+            loadMyFriendCode(user.uid);
+            loadMyFriends(user.uid);
+            loadMyGroups(user.uid);
+            updateAuthUI();
+            rerender();
+          });
         });
       });
     } else {
