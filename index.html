@@ -1347,8 +1347,7 @@
   <div class="admin-bar">
     <span id="userDisplay" style="font-family:'Source Code Pro',monospace;font-size:0.65rem;color:var(--text-dim);display:none;"></span>
     <button id="editNameBtn" class="admin-btn" onclick="openNameModal()" style="display:none;font-size:0.6rem;padding:4px 8px;">✎</button>
-    <button class="admin-btn" id="userSignIn" onclick="handleUserSignIn()" style="display:none;">SIGN IN</button>
-    <button class="admin-btn" id="adminToggle" onclick="handleAdminToggle()">ADMIN</button>
+    <button class="admin-btn" id="signInBtn" onclick="handleSignIn()">SIGN IN</button>
   </div>
   <header class="site-header">
     <h1>LIFESTREAM</h1>
@@ -1508,7 +1507,7 @@
   <div class="modal-overlay" id="loginModal">
     <div class="modal">
       <h2>AUTHENTICATE</h2>
-      <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:20px;line-height:1.6;">Sign in with an authorized admin Google account.</p>
+      <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:20px;line-height:1.6;">Sign in with Google to access personal events, characters, and friends.</p>
       <div class="error-msg" id="loginError">Authentication failed.</div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal('loginModal')">Cancel</button>
@@ -2160,86 +2159,53 @@
 
   // Show/hide UI for sign-in state
   function updateAuthUI() {
-    const signInBtn = document.getElementById('userSignIn');
-    const adminBtn = document.getElementById('adminToggle');
+    const btn = document.getElementById('signInBtn');
     const userDisp = document.getElementById('userDisplay');
     const editBtn = document.getElementById('editNameBtn');
 
     if (currentUser) {
-      signInBtn.style.display = 'none';
-      editBtn.style.display = 'none';
+      // Signed in — show name, edit button, and sign out
+      userDisp.textContent = userDisplayName || currentUser.email;
+      userDisp.style.display = 'inline';
+      editBtn.style.display = 'inline-block';
+      btn.textContent = isAdmin ? 'ADMIN ✓  SIGN OUT' : 'SIGN OUT';
       if (isAdmin) {
-        adminBtn.classList.add('active');
-        adminBtn.textContent = 'ADMIN ✓';
+        btn.classList.add('active');
         document.body.classList.add('admin-mode');
-        if (userDisplayName) {
-          userDisp.textContent = userDisplayName;
-          userDisp.style.display = 'inline';
-          editBtn.style.display = 'inline-block';
-        } else {
-          userDisp.style.display = 'none';
-        }
-      } else {
-        adminBtn.style.display = 'none';
-        userDisp.textContent = userDisplayName || currentUser.email;
-        userDisp.style.display = 'inline';
-        editBtn.style.display = 'inline-block';
-        signInBtn.textContent = 'SIGN OUT';
-        signInBtn.style.display = 'inline-block';
-        signInBtn.classList.add('user-signed-in');
-        document.body.classList.add('user-mode');
       }
+      document.body.classList.add('user-mode');
     } else {
-      signInBtn.textContent = 'SIGN IN';
-      signInBtn.style.display = 'inline-block';
-      signInBtn.classList.remove('user-signed-in');
-      adminBtn.style.display = 'inline-block';
-      adminBtn.classList.remove('active');
-      adminBtn.textContent = 'ADMIN';
+      // Signed out
+      btn.textContent = 'SIGN IN';
+      btn.classList.remove('active');
       userDisp.style.display = 'none';
       editBtn.style.display = 'none';
       document.body.classList.remove('admin-mode', 'user-mode');
     }
   }
 
-  function handleAdminToggle() {
-    if (isAdmin) {
+  function handleSignIn() {
+    if (currentUser) {
       signOutUser();
       return;
     }
-    openModal('loginModal');
-  }
-
-  function handleUserSignIn() {
-    if (currentUser && !isAdmin) {
-      signOutUser();
-      return;
-    }
-    doGoogleSignIn(false);
+    doGoogleSignIn();
   }
 
   function confirmLogin() {
-    doGoogleSignIn(true);
+    doGoogleSignIn();
   }
 
-  function doGoogleSignIn(requireAdmin) {
+  function doGoogleSignIn() {
     const err = document.getElementById('loginError');
     err.style.display = 'none';
 
     auth.signInWithPopup(googleProvider)
       .then((result) => {
-        const email = result.user.email;
-        // Check if blocked
         return blockedRef.child(result.user.uid).once('value').then(snap => {
           if (snap.val()) {
             auth.signOut();
             err.textContent = 'This account has been blocked.';
-            err.style.display = 'block';
-            return;
-          }
-          if (requireAdmin && !isAdminEmail(email)) {
-            auth.signOut();
-            err.textContent = 'This Google account is not an admin.';
             err.style.display = 'block';
             return;
           }
@@ -2325,7 +2291,7 @@
   });
 
   // Show sign-in button on load (before auth resolves)
-  document.getElementById('userSignIn').style.display = 'inline-block';
+  // Sign-in button is visible by default via HTML
 
   // ==================== MODALS ====================
   function openModal(id) { document.getElementById(id).classList.add('show'); }
