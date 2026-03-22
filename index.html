@@ -1204,48 +1204,75 @@
     text-decoration: line-through;
   }
 
-  /* Year navigation rail */
+  /* Year navigation rail — left side, against the timeline bar */
   .year-nav {
     position: fixed;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
+    left: 50%;
+    margin-left: -410px;
+    top: 90px;
+    bottom: 10px;
     z-index: 80;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    justify-content: center;
+    gap: 1px;
     align-items: flex-end;
+    pointer-events: auto;
   }
 
   .year-nav-btn {
     font-family: 'Source Code Pro', monospace;
-    font-size: 0.58rem;
+    font-size: 0.5rem;
     color: var(--text-dim);
     background: none;
     border: none;
     cursor: pointer;
-    padding: 3px 6px;
+    padding: 1px 6px;
     border-radius: 3px;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
     letter-spacing: 0.05em;
     text-align: right;
     white-space: nowrap;
+    opacity: 0.3;
+    transform: scale(0.8);
+    transform-origin: right center;
   }
 
   .year-nav-btn:hover {
     color: var(--mako-green);
-    background: rgba(57,255,133,0.06);
+    opacity: 1 !important;
+    transform: scale(1.1) !important;
   }
 
   .year-nav-btn.active-year {
     color: var(--mako-green);
     font-weight: 600;
+    opacity: 1;
+    transform: scale(1.3);
+    text-shadow: 0 0 8px rgba(57,255,133,0.3);
+  }
+
+  .year-nav-btn.near-1 {
+    opacity: 0.7;
+    transform: scale(1.1);
+    color: var(--mako-dim);
+  }
+
+  .year-nav-btn.near-2 {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 860px) {
+    .year-nav {
+      left: 2px;
+      margin-left: 0;
+    }
   }
 
   @media (max-width: 600px) {
     .tag-filters { padding-left: 58px; }
-    .year-nav { right: 4px; }
-    .year-nav-btn { font-size: 0.5rem; padding: 2px 4px; }
+    .year-nav-btn { font-size: 0.45rem; padding: 1px 3px; }
   }
 </style>
 </head>
@@ -1960,7 +1987,7 @@
     container.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
   }
 
-  // Highlight current year in nav on scroll
+  // Highlight current year in nav with fisheye effect
   (function() {
     let scrollTick = false;
     document.getElementById('timelineContainer').addEventListener('scroll', () => {
@@ -1972,14 +1999,22 @@
         const yearGroups = container.querySelectorAll('.year-group');
         const navBtns = document.querySelectorAll('.year-nav-btn');
         if (!yearGroups.length || !navBtns.length) return;
-        let activeYear = null;
-        yearGroups.forEach(g => {
-          if (g.offsetTop - container.scrollTop < container.clientHeight * 0.4) {
-            activeYear = g.id.replace('year-', '');
-          }
+
+        // Find which year is centered in viewport
+        let activeIdx = 0;
+        const viewCenter = container.scrollTop + container.clientHeight * 0.4;
+        yearGroups.forEach((g, i) => {
+          if (g.offsetTop <= viewCenter) activeIdx = i;
         });
-        navBtns.forEach(btn => {
-          btn.classList.toggle('active-year', btn.dataset.year === activeYear);
+
+        // Apply fisheye classes based on distance from active
+        const yearArr = Array.from(navBtns);
+        yearArr.forEach((btn, i) => {
+          btn.classList.remove('active-year', 'near-1', 'near-2');
+          const dist = Math.abs(i - activeIdx);
+          if (dist === 0) btn.classList.add('active-year');
+          else if (dist === 1) btn.classList.add('near-1');
+          else if (dist === 2) btn.classList.add('near-2');
         });
       });
     });
