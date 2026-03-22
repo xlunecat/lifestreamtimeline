@@ -582,9 +582,10 @@
   }
 
   .admin-panel-toggle:hover {
+    transform: scale(1.08);
     border-color: var(--mako-green);
     color: var(--mako-green);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 12px rgba(57,255,133,0.15);
+    box-shadow: 0 4px 32px rgba(0,0,0,0.5), 0 0 24px rgba(57,255,133,0.2);
   }
 
   body.admin-mode .admin-panel-toggle { display: block; }
@@ -1540,7 +1541,7 @@
       <h2>CREATE GROUP</h2>
       <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:16px;line-height:1.6;">Create a group for shared timeline events. Share the group code with members.</p>
       <label for="groupNameInput">Group Name</label>
-      <input type="text" id="groupNameInput" placeholder="e.g. Avalanche, The Turks..." maxlength="40" onkeydown="if(event.key==='Enter')submitCreateGroup()">
+      <input type="text" id="groupNameInput" placeholder="e.g. AVALANCHE, The Turks..." maxlength="40" onkeydown="if(event.key==='Enter')submitCreateGroup()">
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal('createGroupModal')">Cancel</button>
         <button class="btn-confirm" onclick="submitCreateGroup()">Create</button>
