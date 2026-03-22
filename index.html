@@ -2659,6 +2659,7 @@
   }
 
   function loadMyFriends(uid) {
+    const savedToggles = loadFriendToggles();
     friendsRef.child(uid).on('value', snap => {
       const data = snap.val();
       const oldFriends = { ...myFriends };
@@ -2680,7 +2681,7 @@
       // Attach listeners for new friends
       Object.keys(data).forEach(fuid => {
         if (!myFriends[fuid]) {
-          myFriends[fuid] = { name: data[fuid].name || 'Unknown', entries: [], characters: [], listener: true };
+          myFriends[fuid] = { name: data[fuid].name || 'Unknown', entries: [], characters: [], listener: true, hidden: !!savedToggles[fuid] };
           // Listen to their personal events
           personalRef.child(fuid).on('value', fsnap => {
             const fdata = fsnap.val();
@@ -2763,9 +2764,25 @@
     rerender();
   }
 
+  function saveFriendToggles() {
+    const hidden = {};
+    Object.keys(myFriends).forEach(uid => {
+      if (myFriends[uid].hidden) hidden[uid] = true;
+    });
+    localStorage.setItem('lifestream_friend_toggles', JSON.stringify(hidden));
+  }
+
+  function loadFriendToggles() {
+    try {
+      const data = localStorage.getItem('lifestream_friend_toggles');
+      return data ? JSON.parse(data) : {};
+    } catch(e) { return {}; }
+  }
+
   function toggleFriendVisibility(uid) {
     if (!myFriends[uid]) return;
     myFriends[uid].hidden = !myFriends[uid].hidden;
+    saveFriendToggles();
     rebuildFriendEntries();
     rebuildVisibleCharacters();
     renderFriendList();
@@ -2864,23 +2881,24 @@
 
   function getCharAgesHtml(eventDateStr) {
     if (!visibleCharacters.length) return '';
-    const lines = visibleCharacters
-      .map(c => {
-        if (!c.birthday) return null;
-        const age = calcAge(eventDateStr, c.birthday);
-        if (age < -1) {
-          const yearsUntil = Math.abs(age) - 1;
-          return `<div class="char-age-line"><span class="age-name">${escHtml(c.name)}</span> <span style="opacity:0.5;font-style:italic;">will be born in <span class="age-num">${yearsUntil}</span> year${yearsUntil===1?'':'s'}</span></div>`;
-        }
-        if (age === -1) {
-          return `<div class="char-age-line"><span class="age-name">${escHtml(c.name)}</span> <span style="opacity:0.5;font-style:italic;">will be born this year</span></div>`;
-        }
-        if (age === 0) {
-          return `<div class="char-age-line"><span class="age-name">${escHtml(c.name)}</span> was <span class="age-num">newborn</span></div>`;
-        }
-        return `<div class="char-age-line"><span class="age-name">${escHtml(c.name)}</span> was <span class="age-num">${age}</span></div>`;
-      })
-      .filter(Boolean);
+    const charAges = visibleCharacters
+      .filter(c => c.birthday)
+      .map(c => ({ name: c.name, age: calcAge(eventDateStr, c.birthday) }))
+      .sort((a, b) => b.age - a.age); // oldest first, unborn (negative) last
+
+    const lines = charAges.map(({ name, age }) => {
+      if (age < -1) {
+        const yearsUntil = Math.abs(age) - 1;
+        return `<div class="char-age-line"><span class="age-name">${escHtml(name)}</span> <span style="opacity:0.5;font-style:italic;">will be born in <span class="age-num">${yearsUntil}</span> year${yearsUntil===1?'':'s'}</span></div>`;
+      }
+      if (age === -1) {
+        return `<div class="char-age-line"><span class="age-name">${escHtml(name)}</span> <span style="opacity:0.5;font-style:italic;">will be born this year</span></div>`;
+      }
+      if (age === 0) {
+        return `<div class="char-age-line"><span class="age-name">${escHtml(name)}</span> was <span class="age-num">newborn</span></div>`;
+      }
+      return `<div class="char-age-line"><span class="age-name">${escHtml(name)}</span> was <span class="age-num">${age}</span></div>`;
+    });
     if (!lines.length) return '';
     return `<div class="char-ages"><div class="ages-label">Character Ages</div>${lines.join('')}</div>`;
   }
