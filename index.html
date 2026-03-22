@@ -1209,6 +1209,84 @@
     border-style: dotted;
   }
 
+  /* "I was there" character tagging */
+  .char-tag-section {
+    margin-top: 12px;
+    padding: 8px 10px;
+    background: rgba(180,120,255,0.04);
+    border: 1px solid rgba(180,120,255,0.1);
+    border-radius: 4px;
+  }
+
+  .char-tag-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .char-tag-header .tag-label {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 0.65rem;
+    color: rgba(180,120,255,0.6);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .i-was-there-btn {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: rgba(180,120,255,0.08);
+    border: 1px solid rgba(180,120,255,0.25);
+    color: #c090ff;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+
+  .i-was-there-btn:hover {
+    background: rgba(180,120,255,0.18);
+    border-color: rgba(180,120,255,0.5);
+  }
+
+  .char-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .char-tag-chip {
+    font-family: 'Quicksand', sans-serif;
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(180,120,255,0.1);
+    color: #c090ff;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .char-tag-chip.friend-tag {
+    background: rgba(57,255,133,0.08);
+    color: var(--mako-dim);
+  }
+
+  .char-tag-chip .remove-tag {
+    cursor: pointer;
+    opacity: 0.5;
+    font-size: 0.6rem;
+  }
+
+  .char-tag-chip .remove-tag:hover { opacity: 1; }
+
+  .char-tag-chip .tag-owner {
+    font-size: 0.58rem;
+    opacity: 0.5;
+    font-style: italic;
+  }
+
   /* Group tag */
   .tag-group {
     background: rgba(255,180,50,0.1);
@@ -1499,6 +1577,19 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal('currentDateModal')">Cancel</button>
         <button class="btn-confirm" onclick="saveCurrentDate()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAG CHARACTERS MODAL -->
+  <div class="modal-overlay" id="tagCharsModal">
+    <div class="modal" style="max-width:380px;">
+      <h2>I WAS THERE</h2>
+      <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:16px;line-height:1.6;">Select which of your characters were involved in this event.</p>
+      <div id="tagCharsCheckboxes" style="margin-bottom:14px;"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('tagCharsModal')">Cancel</button>
+        <button class="btn-confirm" onclick="saveCharTags()">Save</button>
       </div>
     </div>
   </div>
@@ -1816,7 +1907,12 @@
   let myPersonalEntries = [];
   let personalListenerUid = null;
   let activeCharacterFilter = null;
-  let hiddenTags = {}; // { 'birthday': true, 'battle': true } — tags to hide
+  let hiddenTags = {};
+
+  // Character tags — personal "I was there" tags on events
+  let myCharTags = {}; // { eventId: ['Lune au Clair', 'Kaguya'] }
+  let friendCharTags = {}; // { eventId: [{ name: 'Gabriel', owner: 'Raz' }] }
+  let charTagsListenerUid = null;
 
   // ==================== TAG FILTER ====================
   const ALL_TAGS = [
@@ -2059,6 +2155,7 @@
           <div class="entry-body"><div class="entry-content">
             ${entry.details.split('\n').map(p=>`<p>${escHtml(p)}</p>`).join('')}
             ${entry.characters?`<div class="characters-involved"><strong>Characters:</strong> ${escHtml(entry.characters)}</div>`:''}
+            ${getCharTagsHtml(entry.id)}
             ${getCharAgesHtml(entry.date)}
           </div></div>
         </div></div>`;
@@ -2241,6 +2338,8 @@
     unloadMyCharacters();
     unloadMyFriends();
     unloadMyGroups();
+    unloadMyCharTags();
+    clearFriendCharTags();
     myFriendCode = null;
     updateAuthUI();
     rerender();
@@ -2290,6 +2389,7 @@
             loadMyFriendCode(user.uid);
             loadMyFriends(user.uid);
             loadMyGroups(user.uid);
+            loadMyCharTags(user.uid);
             updateAuthUI();
             rerender();
           });
@@ -2440,6 +2540,7 @@
   const groupEventsRef = db.ref('group_events');
   const groupMembersRef = db.ref('group_members');
   const currentDateRef = db.ref('current_rp_date');
+  const charTagsRef = db.ref('character_tags'); // user's personal character tags on events
 
   let myGroups = {}; // { groupId: { name, code, events[], listener } }
   let groupEntries = []; // flattened
@@ -2718,6 +2819,8 @@
               rerender();
             }
           });
+          // Load their character tags on events
+          if (!myFriends[fuid].hidden) loadFriendCharTags(fuid);
         }
       });
       renderFriendList();
@@ -3001,6 +3104,131 @@
   function deleteMyCharacter(charId) {
     if (!currentUser) return;
     if (confirm('Remove this character?')) deleteCharacter(charId, currentUser.uid);
+  }
+
+  // ==================== CHARACTER TAGGING ("I Was There") ====================
+  let taggingEventId = null;
+
+  function loadMyCharTags(uid) {
+    if (charTagsListenerUid) charTagsRef.child(charTagsListenerUid).off();
+    charTagsListenerUid = uid;
+    charTagsRef.child(uid).on('value', snap => {
+      const data = snap.val();
+      myCharTags = data || {};
+      rerender();
+    });
+  }
+
+  function unloadMyCharTags() {
+    if (charTagsListenerUid) charTagsRef.child(charTagsListenerUid).off();
+    charTagsListenerUid = null;
+    myCharTags = {};
+  }
+
+  function loadFriendCharTags(fuid) {
+    charTagsRef.child(fuid).once('value').then(snap => {
+      const data = snap.val();
+      if (!data) return;
+      // Merge into friendCharTags keyed by event ID
+      const friendName = (myFriends[fuid] && myFriends[fuid].name) || 'Friend';
+      Object.keys(data).forEach(eventId => {
+        if (!friendCharTags[eventId]) friendCharTags[eventId] = [];
+        const chars = data[eventId];
+        if (typeof chars === 'object' && !Array.isArray(chars)) {
+          Object.values(chars).forEach(charName => {
+            friendCharTags[eventId].push({ name: charName, owner: friendName });
+          });
+        }
+      });
+      rerender();
+    });
+  }
+
+  function clearFriendCharTags() {
+    friendCharTags = {};
+  }
+
+  function openTagCharsModal(eventId) {
+    taggingEventId = eventId;
+    const container = document.getElementById('tagCharsCheckboxes');
+    if (!myCharacters.length) {
+      container.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;font-style:italic;">No characters registered. Add characters in the ⚔ panel first.</div>';
+      openModal('tagCharsModal');
+      return;
+    }
+    const currentTags = myCharTags[eventId] || {};
+    let html = '';
+    myCharacters.forEach(c => {
+      const checked = Object.values(currentTags).includes(c.name);
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--plate-light);">
+        <input type="checkbox" class="tag-char-cb" data-name="${escHtml(c.name)}" ${checked ? 'checked' : ''} style="width:auto;margin:0;accent-color:#c090ff;">
+        <span style="font-family:'Cinzel',serif;font-size:0.85rem;color:var(--text-bright);">${escHtml(c.name)}</span>
+      </div>`;
+    });
+    container.innerHTML = html;
+    openModal('tagCharsModal');
+  }
+
+  function saveCharTags() {
+    if (!taggingEventId || !currentUser) { closeModal('tagCharsModal'); return; }
+    const checkboxes = document.querySelectorAll('.tag-char-cb');
+    const tags = {};
+    let idx = 0;
+    checkboxes.forEach(cb => {
+      if (cb.checked) {
+        tags['c' + idx] = cb.dataset.name;
+        idx++;
+      }
+    });
+    if (Object.keys(tags).length) {
+      charTagsRef.child(currentUser.uid).child(taggingEventId).set(tags);
+    } else {
+      charTagsRef.child(currentUser.uid).child(taggingEventId).remove();
+    }
+    closeModal('tagCharsModal');
+  }
+
+  function removeMyCharTag(eventId, charName) {
+    if (!currentUser || !myCharTags[eventId]) return;
+    const tags = myCharTags[eventId];
+    const newTags = {};
+    let idx = 0;
+    Object.values(tags).forEach(n => {
+      if (n !== charName) { newTags['c' + idx] = n; idx++; }
+    });
+    if (Object.keys(newTags).length) {
+      charTagsRef.child(currentUser.uid).child(eventId).set(newTags);
+    } else {
+      charTagsRef.child(currentUser.uid).child(eventId).remove();
+    }
+  }
+
+  function getCharTagsHtml(eventId) {
+    const mine = myCharTags[eventId] ? Object.values(myCharTags[eventId]) : [];
+    const fromFriends = friendCharTags[eventId] || [];
+    if (!mine.length && !fromFriends.length && !isUser) return '';
+
+    let html = '<div class="char-tag-section"><div class="char-tag-header">';
+    html += '<span class="tag-label">Involved Characters</span>';
+    if (isUser) {
+      html += `<button class="i-was-there-btn" onclick="event.stopPropagation();openTagCharsModal('${eventId}')">⚔ I was there</button>`;
+    }
+    html += '</div><div class="char-tag-list">';
+
+    mine.forEach(name => {
+      html += `<span class="char-tag-chip">${escHtml(name)} <span class="remove-tag" onclick="event.stopPropagation();removeMyCharTag('${eventId}','${escHtml(name)}')">✕</span></span>`;
+    });
+
+    fromFriends.forEach(({ name, owner }) => {
+      html += `<span class="char-tag-chip friend-tag">${escHtml(name)} <span class="tag-owner">(${escHtml(owner)})</span></span>`;
+    });
+
+    if (!mine.length && !fromFriends.length) {
+      html += '<span style="font-size:0.7rem;color:var(--text-dim);font-style:italic;">No one yet — be the first!</span>';
+    }
+
+    html += '</div></div>';
+    return html;
   }
 
   // ==================== DISPLAY NAME ====================
