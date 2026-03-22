@@ -80,6 +80,38 @@
     text-transform: uppercase;
   }
 
+  .current-date {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 0.7rem;
+    color: var(--mako-dim);
+    letter-spacing: 0.12em;
+    margin-top: 6px;
+    opacity: 0.8;
+  }
+
+  .current-date .date-text {
+    display: inline;
+  }
+
+  .current-date .edit-date-btn {
+    display: none;
+    background: none;
+    border: 1px solid var(--plate-light);
+    color: var(--text-dim);
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'Source Code Pro', monospace;
+    margin-left: 8px;
+    transition: all 0.2s;
+    vertical-align: middle;
+  }
+
+  .current-date .edit-date-btn:hover { border-color: var(--mako-green); color: var(--mako-green); }
+
+  body.admin-mode .current-date .edit-date-btn { display: inline; }
+
   .admin-bar {
     position: fixed;
     top: 0;
@@ -533,7 +565,7 @@
   .admin-panel-toggle {
     display: none;
     position: fixed;
-    bottom: 30px;
+    bottom: 92px;
     left: 30px;
     width: 52px;
     height: 52px;
@@ -693,7 +725,7 @@
   .add-entry-btn {
     display: none;
     position: fixed;
-    bottom: 92px;
+    bottom: 30px;
     left: 30px;
     width: 52px;
     height: 52px;
@@ -1320,6 +1352,10 @@
   <header class="site-header">
     <h1>LIFESTREAM</h1>
     <div class="subtitle">Timeline of Events</div>
+    <div class="current-date" id="currentDateDisplay">
+      <span class="date-text" id="currentDateText"></span>
+      <button class="edit-date-btn" onclick="openCurrentDateModal()">✎ SET</button>
+    </div>
   </header>
   <div class="filter-bar" id="filterBar">
     <div class="filter-search">
@@ -1439,6 +1475,30 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal('joinGroupModal')">Cancel</button>
         <button class="btn-confirm" onclick="submitJoinGroup()">Join</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SET CURRENT RP DATE MODAL -->
+  <div class="modal-overlay" id="currentDateModal">
+    <div class="modal" style="max-width:380px;">
+      <h2>SET CURRENT DATE</h2>
+      <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:16px;line-height:1.6;">Set the current in-character month and year for the RP.</p>
+      <label>Month</label>
+      <select id="currentDateMonth" style="margin-bottom:14px;">
+        <option value="">Unset</option>
+        <option value="01">January</option><option value="02">February</option>
+        <option value="03">March</option><option value="04">April</option>
+        <option value="05">May</option><option value="06">June</option>
+        <option value="07">July</option><option value="08">August</option>
+        <option value="09">September</option><option value="10">October</option>
+        <option value="11">November</option><option value="12">December</option>
+      </select>
+      <label>Year</label>
+      <input type="text" id="currentDateYear" placeholder="Year" maxlength="4">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('currentDateModal')">Cancel</button>
+        <button class="btn-confirm" onclick="saveCurrentDate()">Save</button>
       </div>
     </div>
   </div>
@@ -2393,6 +2453,7 @@
   const groupsRef = db.ref('groups');
   const groupEventsRef = db.ref('group_events');
   const groupMembersRef = db.ref('group_members');
+  const currentDateRef = db.ref('current_rp_date');
 
   let myGroups = {}; // { groupId: { name, code, events[], listener } }
   let groupEntries = []; // flattened
@@ -2990,6 +3051,47 @@
     });
     container.innerHTML = html;
   }
+
+  // ==================== CURRENT RP DATE ====================
+  function loadCurrentDate() {
+    currentDateRef.on('value', snap => {
+      const data = snap.val();
+      const el = document.getElementById('currentDateText');
+      if (!data || !data.year) {
+        el.textContent = '';
+        document.getElementById('currentDateDisplay').style.display = isAdmin ? 'block' : 'none';
+        return;
+      }
+      document.getElementById('currentDateDisplay').style.display = 'block';
+      const month = data.month ? MONTHS[parseInt(data.month)] : '';
+      const yearNum = parseInt(data.year);
+      const era = formatEraYear(yearNum);
+      el.textContent = month ? `Current Date: ${month}, ${era}` : `Current Date: ${era}`;
+    });
+  }
+
+  function openCurrentDateModal() {
+    currentDateRef.once('value').then(snap => {
+      const data = snap.val();
+      document.getElementById('currentDateMonth').value = data?.month || '';
+      document.getElementById('currentDateYear').value = data?.year || '';
+      openModal('currentDateModal');
+    });
+  }
+
+  function saveCurrentDate() {
+    const month = document.getElementById('currentDateMonth').value;
+    const year = document.getElementById('currentDateYear').value.trim();
+    if (!year) {
+      currentDateRef.remove();
+    } else {
+      currentDateRef.set({ month: month || '', year });
+    }
+    closeModal('currentDateModal');
+  }
+
+  // Load current date on startup
+  loadCurrentDate();
 
   // ==================== PARTICLES ====================
   (function() {
