@@ -1174,6 +1174,79 @@
     font-style: italic;
     opacity: 0.6;
   }
+
+  /* Tag filter row */
+  .tag-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 6px 0 2px;
+    padding-left: 80px;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  .tag-filter-chip {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-transform: uppercase;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .tag-filter-chip.off {
+    opacity: 0.35;
+    text-decoration: line-through;
+  }
+
+  /* Year navigation rail */
+  .year-nav {
+    position: fixed;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 80;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-end;
+  }
+
+  .year-nav-btn {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .year-nav-btn:hover {
+    color: var(--mako-green);
+    background: rgba(57,255,133,0.06);
+  }
+
+  .year-nav-btn.active-year {
+    color: var(--mako-green);
+    font-weight: 600;
+  }
+
+  @media (max-width: 600px) {
+    .tag-filters { padding-left: 58px; }
+    .year-nav { right: 4px; }
+    .year-nav-btn { font-size: 0.5rem; padding: 2px 4px; }
+  }
 </style>
 </head>
 <body>
@@ -1197,6 +1270,8 @@
     </div>
     <div class="filter-chips" id="filterChips"></div>
   </div>
+  <div class="tag-filters" id="tagFilters"></div>
+  <div class="year-nav" id="yearNav"></div>
   <div class="timeline-bar"></div>
   <div class="timeline-container" id="timelineContainer">
     <div id="timelineEntries">
@@ -1617,6 +1692,37 @@
   let myPersonalEntries = [];
   let personalListenerUid = null;
   let activeCharacterFilter = null;
+  let hiddenTags = {}; // { 'birthday': true, 'battle': true } — tags to hide
+
+  // ==================== TAG FILTER ====================
+  const ALL_TAGS = [
+    { value: 'battle', label: 'BATTLE', bg: 'rgba(255,64,96,0.12)', color: '#ff6080', border: 'rgba(255,64,96,0.25)' },
+    { value: 'political', label: 'POLITICAL', bg: 'rgba(240,200,80,0.12)', color: '#f0c850', border: 'rgba(240,200,80,0.25)' },
+    { value: 'personal', label: 'PERSONAL', bg: 'rgba(100,160,255,0.12)', color: '#80b0ff', border: 'rgba(100,160,255,0.25)' },
+    { value: 'lore', label: 'LORE', bg: 'rgba(180,120,255,0.12)', color: '#c090ff', border: 'rgba(180,120,255,0.25)' },
+    { value: 'mission', label: 'MISSION', bg: 'rgba(57,255,133,0.12)', color: '#39ff85', border: 'rgba(57,255,133,0.25)' },
+    { value: 'birthday', label: 'BIRTHDAY', bg: 'rgba(255,150,200,0.12)', color: '#ff96c8', border: 'rgba(255,150,200,0.25)' },
+  ];
+
+  function renderTagFilters() {
+    const container = document.getElementById('tagFilters');
+    let html = '';
+    ALL_TAGS.forEach(t => {
+      const isOff = hiddenTags[t.value];
+      html += `<button class="tag-filter-chip${isOff ? ' off' : ''}" style="background:${t.bg};color:${t.color};border:1px solid ${t.border};" onclick="toggleTagFilter('${t.value}')">${t.label}</button>`;
+    });
+    container.innerHTML = html;
+  }
+
+  function toggleTagFilter(tag) {
+    if (hiddenTags[tag]) {
+      delete hiddenTags[tag];
+    } else {
+      hiddenTags[tag] = true;
+    }
+    renderTagFilters();
+    rerender();
+  }
 
   // ==================== CHARACTER FILTER ====================
   function extractCharacters(entries) {
@@ -1760,6 +1866,14 @@
       });
     }
 
+    // Apply tag filter — hide entries with hidden tags
+    if (Object.keys(hiddenTags).length) {
+      visible = visible.filter(e => !e.tag || !hiddenTags[e.tag]);
+    }
+
+    // Render tag filter chips
+    renderTagFilters();
+
     const sorted = sortEntries(visible);
 
     if (!sorted.length) {
@@ -1774,9 +1888,10 @@
     sorted.forEach(e => { const {year}=parseDate(e.date); if(!groups[year])groups[year]=[]; groups[year].push(e); });
 
     let html = '';
-    Object.keys(groups).sort((a,b)=>Number(a)-Number(b)).forEach(year => {
+    const yearList = Object.keys(groups).sort((a,b)=>Number(a)-Number(b));
+    yearList.forEach(year => {
       const vis = hasRendered ? ' visible' : ' entering';
-      html += `<div class="year-group"><div class="year-label${vis}"><span>${formatEraYear(Number(year))}</span></div>`;
+      html += `<div class="year-group" id="year-${year}"><div class="year-label${vis}"><span>${formatEraYear(Number(year))}</span></div>`;
       groups[year].forEach(entry => {
         const tc = entry.tag?`tag-${entry.tag}`:'', tl = entry.tag?entry.tag.toUpperCase():'';
         const priv = entry.private ? ' classified' : '';
@@ -1817,10 +1932,58 @@
     container.innerHTML = html;
     hasRendered = true;
 
+    // Build year navigation
+    renderYearNav(yearList);
+
     // Restore scroll position so re-renders don't jump
     scrollContainer.scrollTop = scrollPos;
     initScrollObserver();
   }
+
+  // ==================== YEAR NAVIGATION ====================
+  function renderYearNav(years) {
+    const nav = document.getElementById('yearNav');
+    if (!years || years.length <= 1) { nav.innerHTML = ''; return; }
+    let html = '';
+    years.forEach(y => {
+      const era = Number(y) >= 2000 ? 'ν' : 'μ';
+      const display = Number(y) >= 2000 ? String(Number(y)-2000).padStart(4,'0') : String(y).padStart(4,'0');
+      html += `<button class="year-nav-btn" onclick="scrollToYear('${y}')" data-year="${y}">${era} ${display}</button>`;
+    });
+    nav.innerHTML = html;
+  }
+
+  function scrollToYear(year) {
+    const el = document.getElementById('year-' + year);
+    if (!el) return;
+    const container = document.getElementById('timelineContainer');
+    container.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
+  }
+
+  // Highlight current year in nav on scroll
+  (function() {
+    let scrollTick = false;
+    document.getElementById('timelineContainer').addEventListener('scroll', () => {
+      if (scrollTick) return;
+      scrollTick = true;
+      requestAnimationFrame(() => {
+        scrollTick = false;
+        const container = document.getElementById('timelineContainer');
+        const yearGroups = container.querySelectorAll('.year-group');
+        const navBtns = document.querySelectorAll('.year-nav-btn');
+        if (!yearGroups.length || !navBtns.length) return;
+        let activeYear = null;
+        yearGroups.forEach(g => {
+          if (g.offsetTop - container.scrollTop < container.clientHeight * 0.4) {
+            activeYear = g.id.replace('year-', '');
+          }
+        });
+        navBtns.forEach(btn => {
+          btn.classList.toggle('active-year', btn.dataset.year === activeYear);
+        });
+      });
+    });
+  })();
 
   // ==================== SCROLL OBSERVER ====================
   let scrollObserver = null;
