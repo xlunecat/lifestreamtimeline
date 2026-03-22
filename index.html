@@ -2494,7 +2494,7 @@
     document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
     document.getElementById('privateCheckboxRow').style.display = (isAdmin && editingSource === 'public') ? 'flex' : 'none';
     document.getElementById('secretCheckboxRow').style.display = editingSource === 'personal' ? 'flex' : 'none';
-    document.getElementById('groupSelectRow').style.display = 'none';
+    document.getElementById('groupSelectRow').style.display = isEditingGroup ? 'block' : 'none';
     const showChars = (isAdmin && editingSource === 'public') || editingSource === 'personal' || isEditingGroup;
     document.getElementById('canonCharsRow').style.display = showChars ? 'block' : 'none';
     document.getElementById('canonCharsLabel').innerHTML = editingSource === 'public'
@@ -2523,6 +2523,9 @@
     document.getElementById('entryPrivate').checked = false;
     document.getElementById('entrySecret').checked = false;
     document.getElementById('entryRlDate').value = '';
+    // Reset group select to prevent stale group IDs
+    const groupSel = document.getElementById('entryGroup');
+    if (groupSel) groupSel.selectedIndex = 0;
   }
 
   function submitEntry() {
@@ -2536,7 +2539,8 @@
     const isPrivate=document.getElementById('entryPrivate').checked;
     const isSecret=document.getElementById('entrySecret').checked;
     const rlDate=document.getElementById('entryRlDate').value;
-    const groupId=document.getElementById('entryGroup')?.value || '';
+    const groupRow = document.getElementById('groupSelectRow');
+    const groupId = (groupRow && groupRow.style.display !== 'none') ? (document.getElementById('entryGroup')?.value || '') : '';
     if (!year||!title||!details) return;
     const m = month || '00';
     const d = day ? day.padStart(2,'0') : '00';
