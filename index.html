@@ -1664,6 +1664,8 @@
         <label id="canonCharsLabel">Characters Involved <span style="font-size:0.6rem;opacity:0.5;">(optional)</span></label>
         <input type="text" id="entryCharacters" placeholder="e.g. Cloud, Sephiroth, Tifa">
       </div>
+      <label style="color:var(--text-dim);opacity:0.7;">RP Log Link <span style="font-size:0.6rem;opacity:0.6;">(optional)</span></label>
+      <input type="url" id="entryLogLink" placeholder="e.g. https://docs.google.com/..." style="margin-bottom:14px;">
       <div id="privateCheckboxRow" style="display:flex;align-items:center;gap:10px;margin:10px 0 6px;">
         <input type="checkbox" id="entryPrivate" style="width:auto;margin:0;accent-color:var(--mako-green);">
         <label for="entryPrivate" style="margin:0;cursor:pointer;color:var(--text-mid);font-size:0.8rem;">CLASSIFIED — Only visible to admins</label>
@@ -2189,6 +2191,7 @@
           </div>
           <div class="entry-body"><div class="entry-content">
             ${entry.details.split('\n').map(p=>`<p>${escHtml(p)}</p>`).join('')}
+            ${entry.logLink ? `<div style="margin-top:8px;"><a href="${escHtml(entry.logLink)}" target="_blank" rel="noopener noreferrer" style="font-family:'Source Code Pro',monospace;font-size:0.72rem;color:#7088ff;text-decoration:none;border-bottom:1px dotted rgba(112,136,255,0.4);" onclick="event.stopPropagation()">📄 View RP Log</a></div>` : ''}
             ${getUnifiedCharsHtml(entry)}
             ${getCharAgesHtml(entry.date)}
           </div></div>
@@ -2525,6 +2528,7 @@
     document.getElementById('entryPrivate').checked = !!entry.private;
     document.getElementById('entrySecret').checked = !!entry.secret;
     document.getElementById('entryRlDate').value = entry.rlDate || '';
+    document.getElementById('entryLogLink').value = entry.logLink || '';
     if (isEditingGroup && groupId) {
       document.getElementById('entryGroup').value = groupId;
     }
@@ -2537,6 +2541,7 @@
     document.getElementById('entryPrivate').checked = false;
     document.getElementById('entrySecret').checked = false;
     document.getElementById('entryRlDate').value = '';
+    document.getElementById('entryLogLink').value = '';
     // Reset group select to prevent stale group IDs
     const groupSel = document.getElementById('entryGroup');
     if (groupSel) groupSel.selectedIndex = 0;
@@ -2553,6 +2558,7 @@
     const isPrivate=document.getElementById('entryPrivate').checked;
     const isSecret=document.getElementById('entrySecret').checked;
     const rlDate=document.getElementById('entryRlDate').value;
+    const logLink=document.getElementById('entryLogLink').value.trim();
     const groupRow = document.getElementById('groupSelectRow');
     const groupId = (groupRow && groupRow.style.display !== 'none') ? (document.getElementById('entryGroup')?.value || '') : '';
     if (!year||!title||!details) return;
@@ -2561,6 +2567,7 @@
     const id = editingId || generateId();
     const entryData = { id, date:`${year}-${m}-${d}`, title, tag, details, characters };
     if (rlDate) entryData.rlDate = rlDate;
+    if (logLink) entryData.logLink = logLink;
     if (isPrivate && editingSource === 'public') entryData.private = true;
     if (isSecret && editingSource === 'personal') entryData.secret = true;
     if (groupId) entryData.groupId = groupId;
